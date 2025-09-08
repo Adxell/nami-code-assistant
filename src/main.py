@@ -1,6 +1,45 @@
 from fastmcp import FastMCP
 
-mcp = FastMCP("My Code Assistant")
+from contextlib import contextmanager
+
+from typing import Iterator
+
+from db_manager.db import DatabaseManager as PostgresManager
+
+from settings.setting import settings
+
+from dataclasses import dataclass
+
+
+@dataclass
+class AppContext:
+    db: PostgresManager
+
+@contextmanager
+def app_lifespan(server: FastMCP) -> Iterator[AppContext]:
+    """Manage database lifecycle with type-safe context."""
+    # Initialize database connection on startup
+    db_host = settings.DB_HOST
+    db_port = settings.DB_PORT
+    db_name = settings.DB_NAME
+    db_user = settings.DB_USER
+    db_password = settings.DB_PASSWORD
+
+    db = PostgresManager(
+        host=db_host,
+        port=db_port,
+        database=db_name,
+        user=db_user,
+        password=db_password
+    )
+    
+    try:
+        db.connect()
+        yield AppContext(db=db)
+    finally:
+        db.disconnect()
+
+mcp = FastMCP("My Code Assistant", lifespan=app_lifespan)
 
 
 @mcp.tool
