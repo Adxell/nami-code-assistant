@@ -5,6 +5,7 @@ year = 2025
 version = "0.1.0"
 description = "A code assistant tool"
 dependencies = [
+    "asyncpg>=0.30.0",
     "fastmcp>=2.12.2",
     "pgvector>=0.4.1",
     "psycopg2-binary>=2.9.10",

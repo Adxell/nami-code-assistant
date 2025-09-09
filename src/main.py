@@ -1,8 +1,9 @@
-from fastmcp import FastMCP
+from multiprocessing import context
+from fastmcp import FastMCP, Context
 
 from contextlib import contextmanager
 
-from typing import Iterator
+from typing import AsyncIterator
 
 from db_manager.db import DatabaseManager as PostgresManager
 
@@ -16,7 +17,7 @@ class AppContext:
     db: PostgresManager
 
 @contextmanager
-def app_lifespan(server: FastMCP) -> Iterator[AppContext]:
+async def app_lifespan(server: FastMCP) -> AsyncIterator[AppContext]:
     """Manage database lifecycle with type-safe context."""
     # Initialize database connection on startup
     db_host = settings.DB_HOST
@@ -34,21 +35,22 @@ def app_lifespan(server: FastMCP) -> Iterator[AppContext]:
     )
     
     try:
-        db.connect()
+        await db.connect()
+        print("Database connected.")
         yield AppContext(db=db)
     finally:
-        db.disconnect()
+        await db.disconnect()
 
 mcp = FastMCP("My Code Assistant", lifespan=app_lifespan)
 
 
 @mcp.tool
-def greet(name: str) -> str:
+async def greet(name: str) -> str:
     """Greet a person by name."""
     return f"Hello, {name}!"
 
 @mcp.tool
-def read_file(file_path: str) -> str:
+async def read_file(file_path: str) -> str:
     """Read the contents of a file."""
     try:
         with open(file_path, 'r') as file:
@@ -57,10 +59,22 @@ def read_file(file_path: str) -> str:
         return str(e)
 
 @mcp.tool
-def list_directory(directory_path: str) -> str:
+async def list_directory(directory_path: str) -> str:
     """List the contents of a directory."""
     import os
     return "\n".join(os.listdir(directory_path))
+
+@mcp.tool
+async def create_table(ctx: Context, table_name: str, columns: str) -> str:
+    """Create a table in the database."""
+    db = ctx.request_context.lifespan_context.db
+    query = f"CREATE TABLE {table_name} ({columns});"
+    try:
+        await db.execute_query(query)
+        return f"Table {table_name} created successfully."
+    except Exception as e:
+        return str(e)
+    
 
 if __name__ == "__main__":
     mcp.run()
